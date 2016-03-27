@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include "Common.h"
 
 template<uint_fast32_t Index, typename T, typename Parent>

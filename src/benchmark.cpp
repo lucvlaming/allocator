@@ -1,9 +1,8 @@
-#include <benchmark/benchmark.h>
-
 #include "Common.h"
 #include "Parent.h"
 #include "Field.h"
 
+#include <benchmark/benchmark.h>
 #include <iostream>
 
 static void escape(const void* p) {
