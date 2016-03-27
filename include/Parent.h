@@ -56,7 +56,7 @@ private:
     #undef SwitchCase
 
     static constexpr uint_fast32_t BlockOffset(uint_fast32_t index) {
-        return FieldOffset(index) * ElementCount;
+        return FieldOffset(index) * ElementCount + ReservedSpace;
     }
 
     template<uint_fast32_t, typename, typename> friend class Field;
@@ -76,10 +76,9 @@ public:
     //allocators
 
     __always_inline void* operator new(size_t) {
-        static auto* allocator = new Allocator<BlockSize, BlockMask, ElementCount>();
+        static Allocator<BlockSize, BlockMask, ElementCount> allocator;
         static_assert(sizeof(T) == sizeof(Parent<T>), "DOD struct should only contain Field() fields.");
-        auto bla = allocator->New();
-        return bla;
+        return allocator.New();
     }
 
     __always_inline void* operator new[](size_t) {
@@ -88,8 +87,8 @@ public:
     }
 
     __always_inline void operator delete(void* ptr) {
-        static auto* deallocator = new Deallocator<BlockSize>();
-        deallocator->Delete(ptr);
+        static Deallocator<BlockMask> deallocator;
+        deallocator.Delete(ptr);
     }
     __always_inline void operator delete[](void* ptr) {
 //        std::cout << "Delete 2" << std::endl;

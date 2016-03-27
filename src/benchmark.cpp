@@ -58,106 +58,79 @@ struct StridedElement {
     int32_t fill[Stride];
 };
 
-//template<typename T>
-//static void CreateDataOriented(benchmark::State& state) {
-//    do {
-//        std::vector<T> storage;
-//        storage.reserve(state.range_x());
-
-//        state.ResumeTiming();
-//        for (int i=0; i<state.range_x(); ++i) {
-//            storage.emplace_back(i);
-//        }
-//        storage.clear();
-//        state.PauseTiming();
-//        escape(&storage);
-//    } while (state.KeepRunning());
-//}
-
-//template<size_t Stride>
-//static void CreateStridedUsingAllocator(benchmark::State& state) {
-//    typedef StridedElement<Stride> Elem;
-//    ContiguousPoolAllocator<Elem> allocator;
-//    ContiguousPoolDeallocator<Elem> deallocator;
-//    do {
-//        std::vector<Elem*> storage;
-//        storage.reserve(state.range_x());
-
-//        state.ResumeTiming();
-//        for (int i=0; i<state.range_x(); ++i) {
-//            storage.emplace_back(allocator.New(i));
-//        }
-//        for (int i=0; i<state.range_x(); ++i) {
-//            deallocator.Delete(storage[i]);
-//        }
-//        state.PauseTiming();
-//        escape(&storage);
-//    } while (state.KeepRunning());
-//}
-
-//template<size_t Stride>
-//static void CreateStridedUsingNew(benchmark::State& state) {
-//    typedef StridedElement<Stride> Elem;
-//    do {
-//        std::vector<Elem*> storage;
-//        storage.reserve(state.range_x());
-
-//        state.ResumeTiming();
-//        for (int i=0; i<state.range_x(); ++i) {
-//            storage.emplace_back(new Elem(i));
-//        }
-//        for (int i=0; i<state.range_x(); ++i) {
-//            delete storage[i];
-//        }
-//        state.PauseTiming();
-
-//        escape(&storage);
-//    } while (state.KeepRunning());
-//}
-
 template<typename T>
-static void AccessDataOriented(benchmark::State& state) {
-    do {
-        std::vector<T*> storage;
+static void CreateDataOriented(benchmark::State& state) {
+    std::vector<T*> storage;
+    storage.reserve(state.range_x());
+    while (state.KeepRunning()) {
+        storage.clear();
         storage.reserve(state.range_x());
         for (int i=0; i<state.range_x(); ++i) {
             storage.emplace_back(new T(i));
         }
-
-        state.ResumeTiming();
-        for (int i=0; i<state.range_x(); ++i) {
-            storage[i]->first = 5;
-        }
-        state.PauseTiming();
-
-        escape(&storage);
-
         for (int i=0; i<state.range_x(); ++i) {
             delete storage[i];
         }
-        storage.clear();
-    } while (state.KeepRunning());
+    }
 }
 
-//BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement1Field)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement2Fields)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement3Fields)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement4Fields)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement8Fields)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingAllocator, 1)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingAllocator, 2)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingAllocator, 4)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingAllocator, 8)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingNew, 1)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingNew, 2)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingNew, 4)->Arg(10240);
-//BENCHMARK_TEMPLATE(CreateStridedUsingNew, 8)->Arg(10240);
+template<size_t Stride>
+static void CreateStrided(benchmark::State& state) {
+    typedef StridedElement<Stride> Elem;
+
+    std::vector<Elem*> storage;
+    storage.reserve(state.range_x());
+
+    while (state.KeepRunning()) {
+        storage.clear();
+        storage.reserve(state.range_x());
+
+        for (int i=0; i<state.range_x(); ++i) {
+            storage.emplace_back(new Elem(i));
+        }
+        for (int i=0; i<state.range_x(); ++i) {
+            delete storage[i];
+        }
+    }
+}
+
+template<typename T>
+static void AccessDataOriented(benchmark::State& state) {
+    std::vector<T*> storage;
+    storage.reserve(state.range_x());
+    for (int i=0; i<state.range_x(); ++i) {
+        storage.emplace_back(new T(i));
+    }
+
+    while (state.KeepRunning()) {
+        for (int i=0; i<state.range_x(); ++i) {
+            storage[i]->first = 5;
+        }
+    }
+
+    for (int i=0; i<state.range_x(); ++i) {
+        delete storage[i];
+    }
+    storage.clear();
+}
 
 
-BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement1Field )->Arg(10);
-//BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement2Fields)->Arg(1024*100);
-//BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement3Fields)->Arg(1024*100);
-//BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement4Fields)->Arg(1024*100);
-//BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement8Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement1Field )->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement2Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement3Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement4Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateDataOriented, DataOrientedElement8Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateStrided, 1)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateStrided, 2)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateStrided, 4)->Arg(1024*100);
+BENCHMARK_TEMPLATE(CreateStrided, 8)->Arg(1024*100);
+
+
+BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement1Field )->Arg(1024*100);
+BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement2Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement3Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement4Fields)->Arg(1024*100);
+BENCHMARK_TEMPLATE(AccessDataOriented, DataOrientedElement8Fields)->Arg(1024*100);
+
 
 BENCHMARK_MAIN()

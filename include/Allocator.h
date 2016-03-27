@@ -6,14 +6,23 @@
 template<uint_fast32_t BlockSize, uint_fast32_t BlockMask, uint_fast32_t ElementCount>
 class Allocator {
 public:
-    Allocator() {
-        NewBlock();
+    Allocator():
+        CurrAddr(0),
+        ElementsLeft(0)
+    {}
+
+    ~Allocator() {
+        if (CurrAddr) {
+            ChangeMemoryBlockCount(*Block(), 1 + (ElementCount - ElementsLeft));
+        }
     }
 
     __always_inline void* New() {
         if (EXPECT_FALSE(!ElementsLeft)) {
-            //could not allocate; start next block; add elements and cleanup
-            Block()->Alive += 1 + (ElementCount - ElementsLeft);
+            //block empty; start next block; add elements and cleanup
+            if (CurrAddr) {
+                ChangeMemoryBlockCount(*Block(), 1 + (ElementCount - ElementsLeft));
+            }
             NewBlock();
         }
         --ElementsLeft;

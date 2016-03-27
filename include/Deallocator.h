@@ -12,20 +12,17 @@ public:
     {}
 
     ~Deallocator() {
-        LastBlock->~MemoryBlock();
-        free(LastBlock);
+        if (LastBlock) {
+            ChangeMemoryBlockCount(*LastBlock, -ElementsDeleted);
+        }
     }
 
     __always_inline void Delete(void* ptr) {
         auto* thisBlock = Block(ptr);
         if (EXPECT_FALSE(thisBlock != LastBlock)) {
             if (LastBlock) {
-                //could not allocate; start next block; add elements and cleanup
-                LastBlock->Alive -= ElementsDeleted;
-                if (!LastBlock->Alive) {
-                    LastBlock->~MemoryBlock();
-                    free(LastBlock);
-                }
+                //block changed and we had a previous block, change element count
+                ChangeMemoryBlockCount(*LastBlock, -ElementsDeleted);
             }
             ElementsDeleted = 0;
             LastBlock = thisBlock;

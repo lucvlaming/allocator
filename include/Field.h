@@ -12,9 +12,9 @@ private:
         auto addr = reinterpret_cast<size_t>(this);
         auto base = (addr & Parent::BlockMask);
         auto itemIndex = addr & ~Parent::BlockMask;
-        std::cout << (void*)base << " " << itemIndex << " " << Parent::BlockOffset(Index) << " " << sizeof(T) << " "
-                  << reinterpret_cast<T*>(base + Parent::BlockOffset(Index)) << " "
-                  << reinterpret_cast<T*>(base + Parent::BlockOffset(Index) + itemIndex * sizeof(T)) << std::endl;
+//        std::cout << (void*)base << " " << itemIndex << " " << Parent::BlockOffset(Index) << " " << sizeof(T) << " "
+//                  << reinterpret_cast<T*>(base + Parent::BlockOffset(Index)) << " "
+//                  << reinterpret_cast<T*>(base + Parent::BlockOffset(Index) + itemIndex * sizeof(T)) << std::endl;
         return reinterpret_cast<T*>(base + Parent::BlockOffset(Index) + itemIndex * sizeof(T));
     }
 
