@@ -8,7 +8,6 @@
 #include "Allocator.h"
 #include "Deallocator.h"
 
-#define MaxMembers 64
 
 #include <iostream>
 
@@ -16,6 +15,15 @@
 //__attribute__((__aligned__((1<<22)))) 
 template<typename T>
 class Parent {
+public:
+    //typedefs for Field()
+    typedef T ParentType;
+    #define MaxMembers 64
+    #define InitialConst(z, n, name) static constexpr uint_fast32_t BOOST_PP_CAT(name, n) = 0;
+    BOOST_PP_REPEAT(MaxMembers, InitialConst, FieldSize)
+    BOOST_PP_REPEAT(MaxMembers, InitialConst, FieldOffset)
+    #undef InitialConst
+    
 private:
     static constexpr uint_fast32_t CalculateTotalStructSize() noexcept {
         uint_fast32_t total = 0;
@@ -38,7 +46,7 @@ private:
     static constexpr uint_fast32_t FieldCount = CalculateFieldCount();
     static constexpr uint_fast32_t ReservedSpace = FieldAlignment > sizeof(MemoryBlock) ? FieldAlignment : sizeof(MemoryBlock);
     //1MB per field (on average), based on 1-2MB LLC per core on average on newer generations
-    static constexpr uint_fast32_t FieldSpace = 1<<20;
+    static constexpr uint_fast32_t FieldSpace = 1<<12;
     static constexpr uint_fast32_t BlockSize = FieldCount * FieldSpace;
     static constexpr uint_fast32_t ItemMask = BlockSize-1;
     static constexpr uint_fast32_t BlockMask = ~ItemMask;
@@ -64,6 +72,7 @@ private:
         return 0;
     }
     #undef SwitchCase
+    #undef MaxMembers
 
     static constexpr uint_fast32_t FieldOffsetInBlock(uint_fast32_t fieldIndex) noexcept {
         return ReservedSpace + FieldOffset(fieldIndex) * ElementCount;
@@ -72,7 +81,7 @@ private:
     static constexpr void* FieldAddress(void* fieldInputAddress, uint_fast32_t fieldIndex) {
         auto addr      = reinterpret_cast<size_t>(fieldInputAddress) - sizeof(ForceSize);  //we have to adjust for parent size since this offsets the pointer
         auto base      = addr & Parent::BlockMask;
-        auto itemIndex = (addr & Parent::ItemMask);
+        auto itemIndex = addr & Parent::ItemMask;
 
 //        base += (itemIndex & ItemBlockMask) * ItemBlockMaskMultiplier;
 //        itemIndex &= ItemMask;
@@ -90,18 +99,9 @@ private:
     template<uint_fast32_t, typename, typename> friend class Field;
 
     //have it size 1 so that the offsets for a stl allocator also work
-    char ForceSize[1];
+    char ForceSize[4];
 
 public:
-    //typedefs for Field()
-    typedef T ParentType;
-    #define InitialConst(z, n, name) static constexpr uint_fast32_t BOOST_PP_CAT(name, n) = 0;
-    BOOST_PP_REPEAT(MaxMembers, InitialConst, FieldSize)
-    BOOST_PP_REPEAT(MaxMembers, InitialConst, FieldOffset)
-    #undef InitialConst
-
-    #undef MaxMembers
-
     //allocators
 
     __always_inline void* operator new(size_t) noexcept {

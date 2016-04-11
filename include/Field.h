@@ -5,10 +5,11 @@
 template<uint_fast32_t Index, typename T, typename Parent>
 class Field {
 private:
-    char MakeEmpty[0];
+    char MakeSize[0];
 
     constexpr T* GetAddress() noexcept {
-        return reinterpret_cast<T*>(Parent::FieldAddress(this, Index));
+        //why is this not vectorized?
+        return reinterpret_cast<T*>(reinterpret_cast<size_t>(this)&0xffffffff);
     }
 
 public:
