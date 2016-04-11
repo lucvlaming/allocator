@@ -20,7 +20,13 @@ public:
     ~allocator() noexcept;
     pointer
     address(reference __x) const noexcept
-    { return std::__addressof(__x); }
+    { 
+        
+        //however, we need to take care of the block size of Parent<> and therefore
+        //adjust the pointer
+        
+        return std::__addressof(__x);
+    }
 
     const_pointer
     address(const_reference __x) const noexcept
@@ -28,10 +34,8 @@ public:
 
     pointer
     allocate(size_type __n, const void* = 0) {
-        //just allocate, create one big block of requested size
-        
-        //if done -> offset dynamic
-        //-->> one extra register used?
+        //we require one big block to be allocated otherwise the offsets will not work
+        //however in effect this will be one or more contiguous blocks that are allocated
     }
     
     void

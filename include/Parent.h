@@ -10,7 +10,11 @@
 
 #define MaxMembers 64
 
-template<typename T>
+#include <iostream>
+
+//TODO: force alignment of this struct to be same as BlockSize so even though it might be allocated on the stack it still works
+//__attribute__((__aligned__((1<<22)))) 
+template<typename T, size_t StructSize>
 class Parent {
 private:
     static constexpr uint_fast32_t CalculateTotalStructSize() noexcept {
@@ -33,11 +37,16 @@ private:
     static constexpr uint_fast32_t TotalStructSize = CalculateTotalStructSize();
     static constexpr uint_fast32_t FieldCount = CalculateFieldCount();
     static constexpr uint_fast32_t ReservedSpace = FieldAlignment > sizeof(MemoryBlock) ? FieldAlignment : sizeof(MemoryBlock);
-     //1MB per field (on average), based on 1-2MB LLC per core on average on newer generations
-    static constexpr uint_fast32_t BlockSize = FieldCount * (1<<20);
-    static constexpr uint_fast32_t BlockMask = ~(BlockSize - 1);
+    //1MB per field (on average), based on 1-2MB LLC per core on average on newer generations
+    static constexpr uint_fast32_t FieldSpace = 1<<20;
+    static constexpr uint_fast32_t BlockSize = FieldCount * FieldSpace;
+    static constexpr uint_fast32_t ItemMask = BlockSize-1;
+    static constexpr uint_fast32_t BlockMask = ~ItemMask;
     static constexpr uint_fast32_t UsableSpace = BlockSize - ReservedSpace;
     static constexpr uint_fast32_t ElementCount = uint_fast32_t(UsableSpace / TotalStructSize / FieldAlignment) * FieldAlignment;
+    //itemmask should be calculated on elementcount for blockmask to work correctly
+    static constexpr uint_fast32_t ItemBlockMask = ~ItemMask;
+    static constexpr uint_fast32_t ItemBlockMaskMultiplier = BlockSize / (ItemMask+1);
 
     //helper functions for Field<>
     #define SwitchCase(z, n, name) case n: return BOOST_PP_CAT(T::name, n);
@@ -56,13 +65,32 @@ private:
     }
     #undef SwitchCase
 
-    static constexpr uint_fast32_t BlockOffset(uint_fast32_t index) noexcept {
-        return FieldOffset(index) * ElementCount + ReservedSpace;
+    static constexpr uint_fast32_t FieldOffsetInBlock(uint_fast32_t fieldIndex) noexcept {
+        return ReservedSpace + FieldOffset(fieldIndex) * ElementCount;
+    }
+    
+    static constexpr void* FieldAddress(void* fieldInputAddress, uint_fast32_t fieldIndex) {
+        auto addr      = reinterpret_cast<size_t>(fieldInputAddress) - sizeof(ForceSize);  //we have to adjust for parent size since this offsets the pointer
+        auto base      = addr & Parent::BlockMask;
+        auto itemIndex = (addr & Parent::ItemMask) / StructSize;
+
+//        base += (itemIndex & ItemBlockMask) * ItemBlockMaskMultiplier;
+//        itemIndex &= ItemMask;
+
+//        std::cout << "base=" << (void*)base << " itemIndex=" << itemIndex << " fieldOffsetInBlock=" << FieldOffsetInBlock(fieldIndex) << " field-size=" << FieldSize(fieldIndex) << " " 
+//                  << "ElementCount=" << ElementCount << " ItemMask=" << ItemMask << " ItemBlockMask=" << ItemBlockMask 
+//                  << " ItemBlockMaskMultiplier=" << ItemBlockMaskMultiplier << " "
+//                  << " base-addr-incr=" << (itemIndex & ItemBlockMask) * ItemBlockMaskMultiplier << " "
+//                  << reinterpret_cast<void*>(base + FieldOffsetInBlock(fieldIndex)) << " "
+//                  << reinterpret_cast<void*>(base + FieldOffsetInBlock(fieldIndex) + itemIndex * FieldSize(fieldIndex)) << std::endl;
+        
+        return reinterpret_cast<void*>(base + FieldOffsetInBlock(fieldIndex) + itemIndex * FieldSize(fieldIndex));
     }
     
     template<uint_fast32_t, typename, typename> friend class Field;
 
-    char ForceSize[1];
+    //have it size 1 so that the offsets for a stl allocator also work
+    char ForceSize[StructSize];
 
 public:
     //typedefs for Field()
@@ -77,8 +105,8 @@ public:
     //allocators
 
     __always_inline void* operator new(size_t) noexcept {
-        static thread_local Allocator<BlockSize, BlockMask, ElementCount> allocator;
-        static_assert(sizeof(T) == sizeof(Parent<T>), "DOD struct should only contain Field() fields.");
+        static thread_local Allocator<BlockSize, BlockMask, ElementCount, StructSize> allocator;
+        static_assert(sizeof(T) == sizeof(Parent<T, TotalStructSize>), "DOD struct should only contain Field() fields.");
         return allocator.New();
     }
 
@@ -88,11 +116,11 @@ public:
         return 0;
     }
 
-    __always_inline void operator delete(void* ptr)  noexcept {
+    __always_inline void operator delete(void* ptr) noexcept {
         static thread_local Deallocator<BlockMask> deallocator;
         deallocator.Delete(ptr);
     }
-    __always_inline void operator delete[](void* ptr)  noexcept {
+    __always_inline void operator delete[](void* ptr) noexcept {
 //        std::cout << "Delete 2" << std::endl;
     }
 };

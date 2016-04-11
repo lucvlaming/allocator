@@ -8,7 +8,7 @@
 static const size_t NumElements = 10000;
 
 //TODO: somehow support templated elements
-struct DataOrientedElement: Parent<DataOrientedElement> {
+struct DataOrientedElement: Parent<DataOrientedElement, 5*4> {
     Field(1, int32_t) first;
     Field(2, int32_t) second;
     Field(3, int32_t) third;
