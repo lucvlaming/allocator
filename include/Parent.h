@@ -8,12 +8,12 @@
 #include "Allocator.h"
 #include "Deallocator.h"
 
+#define MaxMembers 64
+
 template<typename T>
 class Parent {
 private:
-    #define MaxMembers 64
-
-    static constexpr uint_fast32_t CalculateTotalStructSize() {
+    static constexpr uint_fast32_t CalculateTotalStructSize() noexcept {
         uint_fast32_t total = 0;
         #define AddMember(z, n, name) total += BOOST_PP_CAT(T::name, n);
         BOOST_PP_REPEAT(MaxMembers, AddMember, FieldSize);
@@ -21,7 +21,7 @@ private:
         return total;
     }
 
-    static constexpr uint_fast32_t CalculateFieldCount() {
+    static constexpr uint_fast32_t CalculateFieldCount() noexcept {
         uint_fast32_t count = 0;
         #define CountFieldUsed(z, n, name) if (BOOST_PP_CAT(T::name, n) > 0) ++count;
         BOOST_PP_REPEAT(MaxMembers, CountFieldUsed, FieldSize);
@@ -33,21 +33,22 @@ private:
     static constexpr uint_fast32_t TotalStructSize = CalculateTotalStructSize();
     static constexpr uint_fast32_t FieldCount = CalculateFieldCount();
     static constexpr uint_fast32_t ReservedSpace = FieldAlignment > sizeof(MemoryBlock) ? FieldAlignment : sizeof(MemoryBlock);
-    static constexpr uint_fast32_t BlockSize = FieldCount * (1<<20); //1MB per field, based on 1-2MB LLC per core on average on newer generations
+     //1MB per field (on average), based on 1-2MB LLC per core on average on newer generations
+    static constexpr uint_fast32_t BlockSize = FieldCount * (1<<20);
     static constexpr uint_fast32_t BlockMask = ~(BlockSize - 1);
     static constexpr uint_fast32_t UsableSpace = BlockSize - ReservedSpace;
     static constexpr uint_fast32_t ElementCount = uint_fast32_t(UsableSpace / TotalStructSize / FieldAlignment) * FieldAlignment;
 
     //helper functions for Field<>
     #define SwitchCase(z, n, name) case n: return BOOST_PP_CAT(T::name, n);
-    static constexpr uint_fast32_t FieldOffset(uint_fast32_t index) {
+    static constexpr uint_fast32_t FieldOffset(uint_fast32_t index) noexcept {
         switch(index) {
         BOOST_PP_REPEAT(MaxMembers, SwitchCase, FieldOffset);
         }
         return 0;
     }
 
-    static constexpr uint_fast32_t FieldSize(uint_fast32_t index) {
+    static constexpr uint_fast32_t FieldSize(uint_fast32_t index) noexcept {
         switch(index) {
         BOOST_PP_REPEAT(MaxMembers, SwitchCase, FieldSize);
         }
@@ -55,13 +56,13 @@ private:
     }
     #undef SwitchCase
 
-    static constexpr uint_fast32_t BlockOffset(uint_fast32_t index) {
+    static constexpr uint_fast32_t BlockOffset(uint_fast32_t index) noexcept {
         return FieldOffset(index) * ElementCount + ReservedSpace;
     }
-
+    
     template<uint_fast32_t, typename, typename> friend class Field;
 
-    char MakeEmpty[0];
+    char ForceSize[1];
 
 public:
     //typedefs for Field()
@@ -75,22 +76,23 @@ public:
 
     //allocators
 
-    __always_inline void* operator new(size_t) {
-        static Allocator<BlockSize, BlockMask, ElementCount> allocator;
+    __always_inline void* operator new(size_t) noexcept {
+        static thread_local Allocator<BlockSize, BlockMask, ElementCount> allocator;
         static_assert(sizeof(T) == sizeof(Parent<T>), "DOD struct should only contain Field() fields.");
         return allocator.New();
     }
 
-    __always_inline void* operator new[](size_t) {
-//        std::cout << "New 2" << std::endl;
+    __always_inline void* operator new[](size_t size) noexcept {
+        
+//        std::cout << "New 2: " << size << std::endl;
         return 0;
     }
 
-    __always_inline void operator delete(void* ptr) {
-        static Deallocator<BlockMask> deallocator;
+    __always_inline void operator delete(void* ptr)  noexcept {
+        static thread_local Deallocator<BlockMask> deallocator;
         deallocator.Delete(ptr);
     }
-    __always_inline void operator delete[](void* ptr) {
+    __always_inline void operator delete[](void* ptr)  noexcept {
 //        std::cout << "Delete 2" << std::endl;
     }
 };

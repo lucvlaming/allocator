@@ -6,18 +6,18 @@
 template<uint_fast32_t BlockMask>
 class Deallocator {
 public:
-    Deallocator():
+    Deallocator() noexcept:
         LastBlock(0),
         ElementsDeleted(0)
     {}
 
-    ~Deallocator() {
+    ~Deallocator() noexcept {
         if (LastBlock) {
             ChangeMemoryBlockCount(*LastBlock, -ElementsDeleted);
         }
     }
 
-    __always_inline void Delete(void* ptr) {
+    __always_inline void Delete(void* ptr) noexcept {
         auto* thisBlock = Block(ptr);
         if (EXPECT_FALSE(thisBlock != LastBlock)) {
             if (LastBlock) {
@@ -31,7 +31,7 @@ public:
     }
 
 private:
-    __always_inline MemoryBlock* Block(void* ptr) {
+    __always_inline MemoryBlock* Block(void* ptr) noexcept {
         return reinterpret_cast<MemoryBlock*>(reinterpret_cast<size_t>(ptr) & BlockMask);
     }
 
