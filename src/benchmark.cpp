@@ -12,25 +12,25 @@ static void escape(const void* p) {
 //TODO: mark functions no exceptions
 
 
-struct DataOrientedElement1Field: Parent<DataOrientedElement1Field, 1*4> {
+struct DataOrientedElement1Field: Parent<DataOrientedElement1Field> {
     DataOrientedElement1Field(int32_t f): first(f) {}
     Field(1, int32_t) first;
 };
 
-struct DataOrientedElement2Fields: Parent<DataOrientedElement2Fields, 2*4> {
+struct DataOrientedElement2Fields: Parent<DataOrientedElement2Fields> {
     DataOrientedElement2Fields(int32_t f): first(f) {}
     Field(1, int32_t) first;
     Field(2, int32_t) second;
 };
 
-struct DataOrientedElement3Fields: Parent<DataOrientedElement3Fields, 3*4> {
+struct DataOrientedElement3Fields: Parent<DataOrientedElement3Fields> {
     DataOrientedElement3Fields(int32_t f): first(f) {}
     Field(1, int32_t) first;
     Field(2, int32_t) second;
     Field(3, int32_t) third;
 };
 
-struct DataOrientedElement4Fields: Parent<DataOrientedElement4Fields, 4*4> {
+struct DataOrientedElement4Fields: Parent<DataOrientedElement4Fields> {
     DataOrientedElement4Fields(int32_t f): first(f) {}
     Field(1, int32_t) first;
     Field(2, int32_t) second;
@@ -38,7 +38,7 @@ struct DataOrientedElement4Fields: Parent<DataOrientedElement4Fields, 4*4> {
     Field(4, int32_t) fourth;
 };
 
-struct DataOrientedElement8Fields: Parent<DataOrientedElement8Fields, 8*4> {
+struct DataOrientedElement8Fields: Parent<DataOrientedElement8Fields> {
     DataOrientedElement8Fields(int32_t f): first(f) {}
     Field(1, int32_t) first;
     Field(2, int32_t) second;
@@ -50,7 +50,7 @@ struct DataOrientedElement8Fields: Parent<DataOrientedElement8Fields, 8*4> {
     Field(8, int32_t) eigth;
 };
 
-struct DataOrientedElement16Fields: Parent<DataOrientedElement16Fields, 16*4> {
+struct DataOrientedElement16Fields: Parent<DataOrientedElement16Fields> {
     DataOrientedElement16Fields(int32_t f): first(f) {}
     Field(1, int32_t) first;
     Field(2, int32_t) second;
@@ -70,7 +70,7 @@ struct DataOrientedElement16Fields: Parent<DataOrientedElement16Fields, 16*4> {
     Field(16, int32_t) sixteenth;
 };
 
-struct DataOrientedElement32Fields: Parent<DataOrientedElement32Fields, 32*4> {
+struct DataOrientedElement32Fields: Parent<DataOrientedElement32Fields> {
     DataOrientedElement32Fields(int32_t f): first(f) {}
     Field(1, int32_t) first;
     Field(2, int32_t) second;

@@ -4,7 +4,7 @@
 #include "Parent.h"
 #include "Field.h"
 
-struct InliningTest: Parent<InliningTest, 13> {
+struct InliningTest: Parent<InliningTest> {
     Field(1, int64_t) first;  //offset = 16
     Field(2, int32_t) second; //offset = 1935760
     Field(3, int8_t ) third;  //offset = 2903632
@@ -17,14 +17,7 @@ struct InliningTest: Parent<InliningTest, 13> {
     }
 };
 
-struct PaddingTest {
-    int64_t a1;
-    int32_t a2;
-    int32_t a3;
-    int8_t  a4;
-};
-
-struct Test: Parent<Test, 13> {
+struct Test: Parent<Test> {
     Test(): first(-1), second(-2), third(-3) {}
 
     Field(1, int64_t) first;
@@ -50,29 +43,12 @@ int main(int, char*[]) {
 //        delete array[i];
 //    }
 
-//    auto test = new InliningTest();
-//    std::cout << "first-field  " << reinterpret_cast<void*>(&test->first) << std::endl;
-//    std::cout << "second-field " << reinterpret_cast<void*>(&test->second) << std::endl;
-//    test->second = -1;
-//    std::cout << "third-field  " << reinterpret_cast<void*>(&test->third) << std::endl;
+    auto test = new InliningTest();
+    std::cout << "first-field  " << reinterpret_cast<void*>(&test->first) << std::endl;
+    std::cout << "second-field " << reinterpret_cast<void*>(&test->second) << std::endl;
+    test->second = -1;
+    std::cout << "third-field  " << reinterpret_cast<void*>(&test->third) << std::endl;
 
-    int32_t storage[1024];
-
-    for (int i=0; i<1024; ++i) {
-        storage[i] = 5;
-    }
-    
-    std::cout << "BLA " << sizeof(PaddingTest) << std::endl;
-    escape(storage);
-    
-    InliningTest* bla = reinterpret_cast<InliningTest*>(aligned_alloc(1<<25, 2048*sizeof(InliningTest)));
-    for (int i=0; i<2048; ++i) {
-        (bla + i)->first = 7;
-    }
-    
-    std::cout << "BLA2" << std::endl;
-    escape(bla);
-    
     return 0;
 }
 //movq    %rax, %rdx

@@ -14,7 +14,7 @@
 
 //TODO: force alignment of this struct to be same as BlockSize so even though it might be allocated on the stack it still works
 //__attribute__((__aligned__((1<<22)))) 
-template<typename T, size_t StructSize>
+template<typename T>
 class Parent {
 private:
     static constexpr uint_fast32_t CalculateTotalStructSize() noexcept {
@@ -72,7 +72,7 @@ private:
     static constexpr void* FieldAddress(void* fieldInputAddress, uint_fast32_t fieldIndex) {
         auto addr      = reinterpret_cast<size_t>(fieldInputAddress) - sizeof(ForceSize);  //we have to adjust for parent size since this offsets the pointer
         auto base      = addr & Parent::BlockMask;
-        auto itemIndex = (addr & Parent::ItemMask) / StructSize;
+        auto itemIndex = (addr & Parent::ItemMask);
 
 //        base += (itemIndex & ItemBlockMask) * ItemBlockMaskMultiplier;
 //        itemIndex &= ItemMask;
@@ -90,7 +90,7 @@ private:
     template<uint_fast32_t, typename, typename> friend class Field;
 
     //have it size 1 so that the offsets for a stl allocator also work
-    char ForceSize[StructSize];
+    char ForceSize[1];
 
 public:
     //typedefs for Field()
@@ -105,8 +105,8 @@ public:
     //allocators
 
     __always_inline void* operator new(size_t) noexcept {
-        static thread_local Allocator<BlockSize, BlockMask, ElementCount, StructSize> allocator;
-        static_assert(sizeof(T) == sizeof(Parent<T, TotalStructSize>), "DOD struct should only contain Field() fields.");
+        static thread_local Allocator<BlockSize, BlockMask, ElementCount> allocator;
+        static_assert(sizeof(T) == sizeof(Parent<T>), "DOD struct should only contain Field() fields.");
         return allocator.New();
     }
 

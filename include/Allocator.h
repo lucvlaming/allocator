@@ -3,7 +3,7 @@
 #include "Common.h"
 #include "MemoryBlock.h"
 
-template<uint_fast32_t BlockSize, uint_fast32_t BlockMask, uint_fast32_t ElementCount, uint_fast32_t StructSize>
+template<uint_fast32_t BlockSize, uint_fast32_t BlockMask, uint_fast32_t ElementCount>
 class Allocator {
 public:
     Allocator() noexcept:
@@ -26,9 +26,7 @@ public:
             NewBlock();
         }
         --ElementsLeft;
-        auto addr = CurrAddr;
-        CurrAddr += StructSize;
-        return addr;
+        return CurrAddr++;
     }
     
     __always_inline void* NewArray(size_t count) noexcept {
