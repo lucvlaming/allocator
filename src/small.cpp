@@ -1,105 +1,140 @@
+#include <array>
 #include <iostream>
+#include <type_traits>
 #include <vector>
 
-#include "Parent.h"
-#include "Field.h"
-
-struct InliningTest: Parent<InliningTest> {
-    Field(1, int64_t) first;  //offset = 16
-    Field(2, int32_t) second; //offset = 1935760
-    Field(3, int8_t ) third;  //offset = 2903632
-    
-    //elementcount = 241968
-
-    InliningTest() {
-        //note: do not set values for the fields to keep assembly clean
-        //somehow the constructor adds a test that cannot be optimized away
-    }
+struct DataInner {
+  int32_t second;
+  int32_t third;
 };
 
-struct VectorizingTest: Parent<VectorizingTest> {
-    Field(1, int32_t) first;
-    Field(2, int64_t) second;
-    Field(3, int8_t) third;
+struct Data {
+  int64_t first;
+  DataInner bla;
+  int64_t fourth;
 };
 
-struct Test: Parent<Test> {
-    Test(): first(-1), second(-2), third(-3) {}
+namespace dod {
 
-    Field(1, int64_t) first;
-    Field(2, int32_t) second;
-    Field(3, int8_t) third;
+template <typename Type, size_t Size, typename FieldType>
+struct array_iterator {
+  FieldType *begin() const { return ptr; }
+  FieldType *end() const { return ptr + Size; }
+  array_iterator &operator*() const { return *ptr; }
+  array_iterator &operator++() {
+    ++ptr;
+    return *this;
+  }
+
+  FieldType *ptr;
 };
 
-static void escape(const void* p) {
-    asm volatile ( "" : : "g" (const_cast<void*>(p)) : "memory" );
+template <typename Type, typename FieldType> struct vector_iterator {
+  FieldType *begin() const { return ptr; }
+  FieldType *end() const { return stop; }
+  vector_iterator &operator*() const { return *ptr; }
+  vector_iterator &operator++() {
+    ++ptr;
+    return *this;
+  }
+
+  FieldType *ptr;
+  FieldType *stop;
+};
+
+template <typename Type, size_t Size> class array {
+public:
+  static_assert(std::is_pod<Type>::value, "Type needs to be POD");
+
+  template <typename FieldType>
+  array_iterator<Type, Size, FieldType> iterate(FieldType Type::*field) {
+    Type instance;
+    const size_t fieldMemberOffset =
+        reinterpret_cast<size_t>(&(instance.*field)) -
+        reinterpret_cast<size_t>(&instance);
+    size_t begin = reinterpret_cast<size_t>(data.data());
+    FieldType *fieldOffset =
+        reinterpret_cast<FieldType *>(begin + (fieldMemberOffset * Size));
+    return array_iterator<Type, Size, FieldType>{fieldOffset};
+  }
+
+private:
+  std::array<Type, Size> data;
+};
+
+template <typename Type> class vector {
+public:
+  static_assert(std::is_pod<Type>::value, "Type needs to be POD");
+
+  vector(size_t size) : data(size) {}
+
+  template <typename FieldType>
+  vector_iterator<Type, FieldType> iterate(FieldType Type::*field) {
+    Type instance;
+    const size_t fieldMemberOffset =
+        reinterpret_cast<size_t>(&(instance.*field)) -
+        reinterpret_cast<size_t>(&instance);
+    size_t begin = reinterpret_cast<size_t>(data.data());
+    FieldType *fieldOffset = reinterpret_cast<FieldType *>(
+        begin + (fieldMemberOffset * data.size()));
+    return vector_iterator<Type, FieldType>{fieldOffset,
+                                            fieldOffset + data.size()};
+  }
+
+  void resize(size_t size) { data.resize(size); }
+
+private:
+  std::vector<Type> data;
+};
 }
 
-int main(int, char*[]) {
-//    static constexpr size_t N = 1024*1024*4-100;
-//    std::vector<Test*> array;
-//    array.reserve(N);
-//    for (size_t i=0; i<N; ++i) {
-//        array.emplace_back(new Test());
-//    }
-//    for (size_t i=0; i<N; ++i) {
-//        array[i]->first = 5;
-//    }
-//    for (size_t i=0; i<N; ++i) {
-//        delete array[i];
-//    }
-
-//    auto test = new InliningTest();
-//    std::cout << "first-field  " << reinterpret_cast<void*>(&test->first) << std::endl;
-//    std::cout << "second-field " << reinterpret_cast<void*>(&test->second) << std::endl;
-//    test->second = -1;
-//    std::cout << "third-field  " << reinterpret_cast<void*>(&test->third) << std::endl;
-
-//    int32_t storage[1024];
-
-//    for (int i=0; i<1024; ++i) {
-//        storage[i] = 5;
-//    }
-    
-//    std::cout << "BLA" << std::endl;
-//    escape(storage);
-    
-    VectorizingTest* bla = reinterpret_cast<VectorizingTest*>(aligned_alloc(1<<25, 2048<<5));
-    for (int i=0; i<2048; ++i) {
-        (bla + i)->first = 7;
-    }
-    
-    std::cout << "BLA2" << std::endl;
-    escape(bla);
-    
-    return 0;
+static void escape(const void *p) {
+  asm volatile("" : : "g"(const_cast<void *>(p)) : "memory");
 }
-//movq    %rax, %rdx
-//movq    %rax, %rcx
-//addq    $1, %rax
-//andq    $-3145728, %rdx
-//andl    $3145727, %ecx
-//movq    $7, 16(%rdx,%rcx,8)
-//cmpq    %rsi, %rax
-//jne     .L8
 
+int main(int, char *[]) {
+  dod::array<Data, 16> elements;
 
-//movq    %rax, %rdx
-//movq    %rax, %rsi
-//movq    %rax, %rcx
-//andl    $2621439, %edx
-//andl    $524288, %esi
-//andq    $-3145728, %rcx
-//leaq    (%rdx,%rdx,4), %rdx
-//addq    $1, %rax
-//leaq    (%rdx,%rsi,8), %rdx
-//movq    $7, 16(%rcx,%rdx)
-//cmpq    %rdi, %rax
-//jne     .L8
+  escape(&elements);
+  uint8_t count = 0;
+  for (auto &first : elements.iterate(&Data::first)) {
+    first = count++;
+  }
+  std::cout << " set" << std::endl;
+  escape(&elements);
+  for (auto &bla : elements.iterate(&Data::bla)) {
+    bla.second = count;
+    bla.third = count;
+    count++;
+  }
+  std::cout << " set" << std::endl;
+  escape(&elements);
+  for (auto &fourth : elements.iterate(&Data::fourth)) {
+    fourth = count++;
+  }
+  std::cout << " set" << std::endl;
 
-//movq    %rax, %rdx
-//addq    $1, %rax
-//andq    $-3145728, %rdx
-//movq    $7, 16(%rdx)
-//cmpq    %rax, %rcx
-//jne     .L8
+  dod::vector<Data> elements2(16);
+  escape(&elements);
+  count = 0;
+  for (auto &first : elements2.iterate(&Data::first)) {
+    first = count++;
+  }
+  std::cout << " set2" << std::endl;
+  escape(&elements);
+  for (auto &bla : elements2.iterate(&Data::bla)) {
+    bla.second = count;
+    bla.third = count;
+    count++;
+  }
+  std::cout << " set2" << std::endl;
+  escape(&elements);
+  for (auto &fourth : elements2.iterate(&Data::fourth)) {
+    fourth = count++;
+  }
+  std::cout << " set2" << std::endl;
+
+  // how to use std:sort now?
+
+  return 0;
+}
