@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(Test)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wold-style-cast -Wno-strict-aliasing -std=c++1z -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -Wl,--gc-sections -flto -fuse-linker-plugin -Ofast -march=native -ffast-math")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wold-style-cast -Wno-strict-aliasing -std=c++1z -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -flto -Ofast -march=native -ffast-math")
 
 add_subdirectory(benchmark)
 
