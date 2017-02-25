@@ -33,7 +33,20 @@ int main(int, char *[])
         first = count++;
     for (auto &first : elements[elements.fields.first])
         std::cout << "first after=" << first << std::endl;
-    std::cout << elements[10].fourth << std::endl;
+    //    for (auto &inner : elements.field[elements.fields.inner])
+    //        ;
+    std::cout << "test object" << std::endl;
+    //    for (auto &object : elements.objects())
+    //        ;
+    for (size_t i = 0; i < 16; ++i)
+    {
+        elements[i]->first  = count++;
+        elements[i]->fourth = count++;
+    }
+    for (auto &first : elements[elements.fields.first])
+        std::cout << "first after=" << first << std::endl;
+    for (auto &fourth : elements[elements.fields.fourth])
+        std::cout << "fourth after=" << fourth << std::endl;
     escape(&elements);
     return 0;
 }

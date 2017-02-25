@@ -1,4 +1,5 @@
 #include <array>
+#include <cassert>
 #include <type_traits>
 
 #include "field_sizes.hpp"
@@ -7,16 +8,20 @@
 namespace dod
 {
 
-template <class Type, size_t Size, class FieldType>
-struct array_iterator
+template <class Type, size_t Count>
+class array;
+
+template <class Type, size_t Count, class FieldType>
+class array_iterator
 {
+public:
     FieldType *begin() const
     {
         return ptr;
     }
     FieldType *end() const
     {
-        return ptr + Size;
+        return ptr + Count;
     }
     array_iterator &operator*() const
     {
@@ -28,56 +33,83 @@ struct array_iterator
         return *this;
     }
 
+private:
+    array_iterator(FieldType *p) : ptr(p)
+    {
+    }
     FieldType *ptr;
+
+    friend class array<Type, Count>;
 };
 
-template <class Type>
-struct array_object : Type
-{
-    array_object(std::size_t i) : Type{}, index(i)
-    {
-    }
-
-    ~array_object()
-    {
-        std::cerr << "index was " << index << std::endl;
-    }
-    std::size_t index;
-};
-
-template <class Type, size_t Size>
-class array
+template <class Type, size_t Count>
+class array_object
 {
 public:
-    static_assert(std::is_literal_type<Type>::value, "Type needs to be a literal type");
-
-    static constexpr Type fields      = {};
-    static constexpr auto field_sizes = ::dod::field_sizes(fields);
-    static constexpr auto packed_size = ::dod::fold_sum(field_sizes);
-
-    array()
+    ~array_object()
     {
-        ::dod::initialize_struct<Size>(reinterpret_cast<const uint8_t *>(&fields), data.data(),
-                                       field_sizes);
+        scatter_struct<Count>(index, reinterpret_cast<const std::uint8_t *>(&object), data,
+                              array<Type, Count>::field_sizes);
     }
 
-    template <typename FieldType>
+    Type *operator->()
+    {
+        return &object;
+    }
+
+private:
+    array_object(uint8_t *d, std::size_t i) : data(d), index(i)
+    {
+        gather_struct<Count>(index, reinterpret_cast<std::uint8_t *>(&object), data,
+                             array<Type, Count>::field_sizes);
+    }
+
+    Type        object;
+    uint8_t *   data;
+    std::size_t index;
+
+    friend class array<Type, Count>;
+};
+
+template <class Type, size_t Count>
+class array
+{
+    static_assert(std::is_literal_type<Type>::value, "Type needs to be a literal type");
+
+public:
+    static constexpr Type fields = {};
+
+private:
+    static constexpr auto field_sizes = ::dod::field_sizes(fields);
+    static constexpr auto packed_size = fold_sum(field_sizes);
+
+public:
+    array()
+    {
+        auto *prototype = reinterpret_cast<const uint8_t *>(&fields);
+        initialize_struct<Count>(prototype, data.data(), field_sizes);
+    }
+
+    template <class FieldType>
     auto operator[](FieldType &field)
     {
         using FT = typename std::remove_cv<FieldType>::type;
         const std::size_t fieldMemberOffset =
                 reinterpret_cast<size_t>(&field) - reinterpret_cast<size_t>(&fields);
+        assert(fieldMemberOffset < packed_size);
         const std::size_t begin       = reinterpret_cast<std::size_t>(data.data());
-        FT *              fieldOffset = reinterpret_cast<FT *>(begin + fieldMemberOffset * Size);
-        return array_iterator<Type, Size, FT>{fieldOffset};
+        FT *              fieldOffset = reinterpret_cast<FT *>(begin + fieldMemberOffset * Count);
+        return array_iterator<Type, Count, FT>{fieldOffset};
     }
 
     auto operator[](std::size_t index)
     {
-        return array_object<Type>(index);
+        return array_object<Type, Count>(data.data(), index);
     }
 
 private:
-    std::array<uint8_t, Size * packed_size> data;
+    std::array<uint8_t, Count * packed_size> data;
+
+    friend class array_object<Type, Count>;
 };
 }
