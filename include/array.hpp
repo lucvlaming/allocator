@@ -74,16 +74,16 @@ private:
 template <class Type, size_t Count>
 class array
 {
+private:
     static_assert(std::is_literal_type<Type>::value, "Type needs to be a literal type");
+
+    static constexpr Type instance    = {};
+    static constexpr auto field_sizes = get_field_sizes(instance);
+    static constexpr auto packed_size = fold_sum(field_sizes);
 
 public:
     static constexpr Type fields = {};
 
-private:
-    static constexpr auto field_sizes = ::dod::field_sizes(fields);
-    static constexpr auto packed_size = fold_sum(field_sizes);
-
-public:
     array()
     {
         auto *prototype = reinterpret_cast<const uint8_t *>(&fields);
@@ -97,6 +97,7 @@ public:
         const std::size_t fieldMemberOffset =
                 reinterpret_cast<size_t>(&field) - reinterpret_cast<size_t>(&fields);
         assert(fieldMemberOffset < packed_size);
+        std::cout << "TEST: " << fieldMemberOffset << std::endl;
         const std::size_t begin       = reinterpret_cast<std::size_t>(data.data());
         FT *              fieldOffset = reinterpret_cast<FT *>(begin + fieldMemberOffset * Count);
         return array_iterator<Type, Count, FT>{fieldOffset};

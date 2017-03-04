@@ -1,11 +1,10 @@
-#include <iostream>
-
 #include "array.hpp"
 
 struct DataInner
 {
     int32_t second = 6;
     int32_t third  = 3;
+    int8_t  bla    = 11;
 };
 
 struct Data
@@ -16,37 +15,33 @@ struct Data
     int16_t   fifth  = 8;
 };
 
-static void escape(const void *p)
-{
-    asm volatile("" : : "g"(const_cast<void *>(p)) : "memory");
-}
-
 int main(int, char *[])
 {
     dod::array<Data, 16> elements;
 
-    escape(&elements);
     uint8_t count = 0;
-    for (auto &first : elements[elements.fields.first])
-        std::cout << "first before=" << first << std::endl;
+
+    // -------------------
+    // interface 1
+    // loop over all elements for specific field
     for (auto &first : elements[elements.fields.first])
         first = count++;
-    for (auto &first : elements[elements.fields.first])
-        std::cout << "first after=" << first << std::endl;
-    //    for (auto &inner : elements.field[elements.fields.inner])
-    //        ;
-    std::cout << "test object" << std::endl;
-    //    for (auto &object : elements.objects())
-    //        ;
-    for (size_t i = 0; i < 16; ++i)
-    {
-        elements[i]->first  = count++;
-        elements[i]->fourth = count++;
-    }
-    for (auto &first : elements[elements.fields.first])
-        std::cout << "first after=" << first << std::endl;
-    for (auto &fourth : elements[elements.fields.fourth])
-        std::cout << "fourth after=" << fourth << std::endl;
-    escape(&elements);
+    // access as object (gather & scatter)
+    for (size_t i          = 0; i < 16; ++i)
+        elements[i]->first = count++;
+
+    // -------------------
+    // interface 2: explicitly name iteration 'type'
+    // loop over all elements for specific field
+    for (auto &first : elements.field[elements.fields.first])
+        first = count++;
+    // access as object (gather & scatter)
+    for (size_t i                 = 0; i < 16; ++i)
+        elements.object[i]->first = count++;
+
+    // -------------------
+    // extra interface
+    for (auto &object : elements.objects())
+        object.first = count++;
     return 0;
 }
