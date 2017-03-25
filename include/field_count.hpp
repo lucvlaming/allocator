@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstddef>
 #include <type_traits>
 #include <utility>
@@ -41,20 +43,15 @@ namespace detail
     }
 
     template <class T, std::size_t Min = 0, std::size_t Max = DOD_MAX_FIELDS>
-    constexpr std::size_t fields_count()
+    constexpr std::size_t field_count() noexcept
     {
-        if
-            constexpr(Min + 1 >= Max) return Min;
+        if constexpr(Min + 1 >= Max)
+            return Min;
         constexpr auto Mid = (Max + Min) / 2;
-        if
-            constexpr(is_constructable<T>(std::make_index_sequence<Mid>()))
-            {
-                return fields_count<T, Mid, Max>();
-            }
+        if constexpr(is_constructable<T>(std::make_index_sequence<Mid>()))
+            return field_count<T, Mid, Max>();
         else
-        {
-            return fields_count<T, 0, Mid>();
-        }
+            return field_count<T, 0, Mid>();
     }
 }
 }

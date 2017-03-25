@@ -1,8 +1,14 @@
+#pragma once
+
+#include <iostream>
+
 #include <array>
 #include <cassert>
 #include <type_traits>
 
 #include "field_sizes.hpp"
+#include "field_index.hpp"
+#include "struct_as_tuple.hpp"
 #include "utility.hpp"
 
 namespace dod
@@ -11,64 +17,146 @@ namespace dod
 template <class Type, size_t Count>
 class array;
 
+template <class Type, size_t Count>
+class object_container;
+
 template <class Type, size_t Count, class FieldType>
-class array_iterator
+class field
 {
 public:
-    FieldType *begin() const
+    FieldType *begin()
     {
-        return ptr;
+        return _ptr;
     }
-    FieldType *end() const
+
+    const FieldType *begin() const
     {
-        return ptr + Count;
+        return _ptr;
     }
-    array_iterator &operator*() const
+
+    FieldType *end()
     {
-        return *ptr;
+        return _ptr + Count;
     }
-    array_iterator &operator++()
+
+    const FieldType *end() const
     {
-        ++ptr;
-        return *this;
+        return _ptr + Count;
     }
 
 private:
-    array_iterator(FieldType *p) : ptr(p)
+    field(FieldType *ptr) : _ptr(ptr)
     {
     }
-    FieldType *ptr;
+    FieldType *_ptr;
 
-    friend class array<Type, Count>;
+    friend class array<std::remove_const_t<Type>, Count>;
 };
 
 template <class Type, size_t Count>
-class array_object
+class object
 {
 public:
-    ~array_object()
+    ~object()
     {
-        scatter_struct<Count>(index, reinterpret_cast<const std::uint8_t *>(&object), data,
-                              array<Type, Count>::field_sizes);
+        if constexpr(std::is_same<Type, std::remove_const_t<Type>>::value)
+            detail::scatter_struct<Count, 0>(_index, detail::struct_as_tuple(_object), _data,
+                                          array<Type, Count>::field_sizes);
     }
 
     Type *operator->()
     {
-        return &object;
+        return &_object;
+    }
+
+    const Type *operator->() const
+    {
+        return &_object;
+    }
+
+    Type *operator*()
+    {
+        return &_object;
+    }
+
+    const Type *operator*() const
+    {
+        return &_object;
     }
 
 private:
-    array_object(uint8_t *d, std::size_t i) : data(d), index(i)
+    object(uint8_t *data, std::size_t index) : _data(data), _index(index)
     {
-        gather_struct<Count>(index, reinterpret_cast<std::uint8_t *>(&object), data,
-                             array<Type, Count>::field_sizes);
+        detail::gather_struct<Count, 0>(_index, detail::struct_as_tuple(_object), _data,
+                                     array<Type, Count>::field_sizes);
     }
 
-    Type        object;
-    uint8_t *   data;
-    std::size_t index;
+    Type        _object;
+    uint8_t *   _data;
+    size_t  _index;
 
-    friend class array<Type, Count>;
+    friend class array<std::remove_const_t<Type>, Count>;
+    friend class object_container<std::remove_const_t<Type>, Count>;
+};
+
+template <class Type, size_t Count>
+class object_container
+{
+public:
+    auto begin()
+    {
+        return object_container<Type, Count>(data, 0);
+    }
+
+    auto begin() const
+    {
+        return object_container<const Type, Count>(data, 0);
+    }
+
+    auto end()
+    {
+        return object_container<Type, Count>(data, Count);
+    }
+
+    auto end() const
+    {
+        return object_container<const Type, Count>(data, Count);
+    }
+
+    auto operator*()
+    {
+        return object<Type, Count>(data, index);
+    }
+
+    auto operator*() const
+    {
+        return object<const Type, Count>(data, index);
+    }
+
+    auto &operator++()
+    {
+        ++index;
+        return *this;
+    }
+
+    auto operator==(const object_container& other) const
+    {
+        return index == other.index && data == other.data;
+    }
+
+    auto operator!=(const object_container& other)  const
+    {
+        return !(operator==(other));
+    }
+
+private:
+    object_container(uint8_t* d, size_t i) : data(d), index(i)
+    {
+    }
+    uint8_t *data;
+    size_t index;
+
+    friend class array<std::remove_const_t<Type>, Count>;
 };
 
 template <class Type, size_t Count>
@@ -76,41 +164,72 @@ class array
 {
 private:
     static_assert(std::is_literal_type<Type>::value, "Type needs to be a literal type");
+    static_assert(Count >= 1, "Empty array does not make sense");
 
     static constexpr Type instance    = {};
-    static constexpr auto field_sizes = get_field_sizes(instance);
-    static constexpr auto packed_size = fold_sum(field_sizes);
+    static constexpr auto field_sizes = detail::field_sizes(instance);
+    static constexpr auto packed_size = detail::fold_sum(field_sizes);
 
 public:
     static constexpr Type fields = {};
 
+    constexpr auto size()
+    {
+        return Count;
+    }
+
     array()
     {
-        auto *prototype = reinterpret_cast<const uint8_t *>(&fields);
-        initialize_struct<Count>(prototype, data.data(), field_sizes);
+        detail::initialize_struct<Count, 0>(detail::struct_as_tuple(fields), data.data(), field_sizes);
     }
 
     template <class FieldType>
-    auto operator[](FieldType &field)
+    auto operator[](FieldType &_field)
     {
         using FT = typename std::remove_cv<FieldType>::type;
-        const std::size_t fieldMemberOffset =
-                reinterpret_cast<size_t>(&field) - reinterpret_cast<size_t>(&fields);
-        assert(fieldMemberOffset < packed_size);
-        std::cout << "TEST: " << fieldMemberOffset << std::endl;
-        const std::size_t begin       = reinterpret_cast<std::size_t>(data.data());
-        FT *              fieldOffset = reinterpret_cast<FT *>(begin + fieldMemberOffset * Count);
-        return array_iterator<Type, Count, FT>{fieldOffset};
+        const auto index = detail::field_index(fields, &_field);
+        assert(index != std::numeric_limits<size_t>::max());
+        const auto offset = detail::sum_n_parts(field_sizes, index);
+        const std::size_t begin       = reinterpret_cast<const std::size_t>(data.data());
+        FT *              fieldOffset = reinterpret_cast<FT *>(begin + offset * Count);
+        return field<Type, Count, FT>{fieldOffset};
     }
 
-    auto operator[](std::size_t index)
+    template <class FieldType>
+    auto operator[](FieldType &_field) const
     {
-        return array_object<Type, Count>(data.data(), index);
+        using FT = typename std::remove_cv<FieldType>::type;
+        const auto index = detail::field_index(fields, &_field);
+        assert(index != std::numeric_limits<size_t>::max());
+        const auto offset = detail::sum_n_parts(field_sizes, index);
+        const std::size_t begin       = reinterpret_cast<const std::size_t>(data.data());
+        const FT *              fieldOffset = reinterpret_cast<const FT *>(begin + offset * Count);
+        return field<const Type, Count, const FT>{fieldOffset};
+    }
+
+    auto transposed()
+    {
+        return object_container<Type, Count>(data.data(), 0);
+    }
+
+    auto transposed() const
+    {
+        return object_container<const Type, Count>(data.data(), 0);
+    }
+
+    auto transposed(std::size_t index)
+    {
+        return *object_container<Type, Count>(data.data(), index);
+    }
+
+    auto transposed(std::size_t index) const
+    {
+        return *object_container<const Type, Count>(data.data(), index);
     }
 
 private:
     std::array<uint8_t, Count * packed_size> data;
 
-    friend class array_object<Type, Count>;
+    friend class object<Type, Count>;
 };
 }
