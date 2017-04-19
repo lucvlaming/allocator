@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMakePCHCompiler)
-
-project(Test CXX CXXPCH)
+project(Test CXX)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Winvalid-pch -Wall -Wextra -Wold-style-cast -Wno-strict-aliasing -std=c++1z -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -Ofast -march=native -ffast-math")
 #NOTE: only do -flto on Release
